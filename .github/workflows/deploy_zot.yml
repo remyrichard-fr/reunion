@@ -1,0 +1,57 @@
+name: Manual Build & Push to Zot
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Environnement de déploiement"
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+        default: production
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image to Zot
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_TAG: ${{ github.event.inputs.tag }}
+
+    steps:
+      # 1️⃣ Récupérer le code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      # 3️⃣ Build & Push de l'image Docker
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: |
+            ${{ secrets.ZOT_HOST }}/remyrichard/reunion:${{ github.sha }}
+          build-args: |
+            NODE_ENV=${{ github.event.inputs.tag }}
+
+      - name: Push OCI image to Zot
+        run: |
+          skopeo copy \
+            --src-tls-verify=false \
+            --dest-tls-verify=false \
+            --format=oci \
+            docker-daemon:${{ secrets.ZOT_HOST }}/remyrichard/reunion:${{ github.sha }} \
+            docker://${{ secrets.ZOT_HOST }}/remyrichard/reunion:${{ env.IMAGE_TAG }} \
+            --dest-creds ${{ secrets.ZOT_USERNAME }}:${{ secrets.ZOT_PASSWORD }}
