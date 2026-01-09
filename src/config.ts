@@ -1,3 +1,3 @@
 export const config = {
-    date: new Date("2025-12-09T00:00:00Z"),
+    date: new Date("2026-05-27T17:00:00Z"),
 }
